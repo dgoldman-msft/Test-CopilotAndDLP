@@ -1,0 +1,362 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- One table row per item so DlpAlerts/DspmEvents arrays print one line per item instead of a multi-line list. -->
+<Configuration>
+  <ViewDefinitions>
+    <View>
+      <Name>CopilotDlp.AlertCorrelation</Name>
+      <ViewSelectedBy>
+        <TypeName>CopilotDlp.AlertCorrelation</TypeName>
+      </ViewSelectedBy>
+      <TableControl>
+        <TableHeaders>
+          <TableColumnHeader>
+            <Label>ConversationId</Label>
+            <Width>36</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>AlertId</Label>
+            <Width>20</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>Title</Label>
+            <Width>30</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>Status</Label>
+            <Width>8</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>Severity</Label>
+            <Width>8</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>Category</Label>
+            <Width>12</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>FirstActivityDateTime</Label>
+          </TableColumnHeader>
+        </TableHeaders>
+        <TableRowEntries>
+          <TableRowEntry>
+            <TableColumnItems>
+              <TableColumnItem>
+                <PropertyName>ConversationId</PropertyName>
+              </TableColumnItem>
+              <TableColumnItem>
+                <PropertyName>AlertId</PropertyName>
+              </TableColumnItem>
+              <TableColumnItem>
+                <PropertyName>Title</PropertyName>
+              </TableColumnItem>
+              <TableColumnItem>
+                <PropertyName>Status</PropertyName>
+              </TableColumnItem>
+              <TableColumnItem>
+                <PropertyName>Severity</PropertyName>
+              </TableColumnItem>
+              <TableColumnItem>
+                <PropertyName>Category</PropertyName>
+              </TableColumnItem>
+              <TableColumnItem>
+                <PropertyName>FirstActivityDateTime</PropertyName>
+              </TableColumnItem>
+            </TableColumnItems>
+          </TableRowEntry>
+        </TableRowEntries>
+      </TableControl>
+    </View>
+    <View>
+      <Name>CopilotDlp.DspmEvent</Name>
+      <ViewSelectedBy>
+        <TypeName>CopilotDlp.DspmEvent</TypeName>
+      </ViewSelectedBy>
+      <TableControl>
+        <TableHeaders>
+          <TableColumnHeader>
+            <Label>ConversationId</Label>
+            <Width>36</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>Activity</Label>
+            <Width>20</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>Happened</Label>
+            <Width>22</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>User</Label>
+            <Width>25</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>AppIdentity</Label>
+            <Width>22</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>AppLocation</Label>
+            <Width>18</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>DLPEvaluationDeferred</Label>
+          </TableColumnHeader>
+        </TableHeaders>
+        <TableRowEntries>
+          <TableRowEntry>
+            <TableColumnItems>
+              <TableColumnItem>
+                <PropertyName>ConversationId</PropertyName>
+              </TableColumnItem>
+              <TableColumnItem>
+                <PropertyName>Activity</PropertyName>
+              </TableColumnItem>
+              <TableColumnItem>
+                <PropertyName>Happened</PropertyName>
+              </TableColumnItem>
+              <TableColumnItem>
+                <PropertyName>User</PropertyName>
+              </TableColumnItem>
+              <TableColumnItem>
+                <PropertyName>AppIdentity</PropertyName>
+              </TableColumnItem>
+              <TableColumnItem>
+                <PropertyName>AppLocation</PropertyName>
+              </TableColumnItem>
+              <TableColumnItem>
+                <PropertyName>DLPEvaluationDeferred</PropertyName>
+              </TableColumnItem>
+            </TableColumnItems>
+          </TableRowEntry>
+        </TableRowEntries>
+      </TableControl>
+    </View>
+    <View>
+      <Name>CopilotDlp.AuditEvent</Name>
+      <ViewSelectedBy>
+        <TypeName>CopilotDlp.AuditEvent</TypeName>
+      </ViewSelectedBy>
+      <ListControl>
+        <ListEntries>
+          <ListEntry>
+            <ListItems>
+              <ListItem>
+                <PropertyName>RunId</PropertyName>
+              </ListItem>
+              <ListItem>
+                <PropertyName>ConversationId</PropertyName>
+              </ListItem>
+              <ListItem>
+                <PropertyName>SubmissionStatus</PropertyName>
+              </ListItem>
+              <ListItem>
+                <PropertyName>ExpectedDlpOutcome</PropertyName>
+              </ListItem>
+              <ListItem>
+                <PropertyName>CreationTime</PropertyName>
+              </ListItem>
+              <ListItem>
+                <PropertyName>UserId</PropertyName>
+              </ListItem>
+              <ListItem>
+                <PropertyName>Operation</PropertyName>
+              </ListItem>
+              <ListItem>
+                <PropertyName>RecordType</PropertyName>
+              </ListItem>
+              <ListItem>
+                <PropertyName>Workload</PropertyName>
+              </ListItem>
+              <ListItem>
+                <PropertyName>AppHost</PropertyName>
+              </ListItem>
+              <ListItem>
+                <PropertyName>DLPEvaluationDeferred</PropertyName>
+              </ListItem>
+              <ListItem>
+                <PropertyName>DLPEvaluationDeferredReason</PropertyName>
+              </ListItem>
+              <ListItem>
+                <Label>ValidationRecord</Label>
+                <ScriptBlock>
+                  if ($null -eq $_.ValidationRecord) {
+                    $null
+                  }
+                  else {
+                    "`n" + (($_.ValidationRecord.PSObject.Properties | ForEach-Object {
+                      "    {0}: {1}" -f $_.Name, $_.Value
+                    }) -join "`n")
+                  }
+                </ScriptBlock>
+              </ListItem>
+              <ListItem>
+                <Label>AuditData</Label>
+                <ScriptBlock>
+                  if ($null -eq $_.AuditData) {
+                    $null
+                  }
+                  else {
+                    "`n" + (($_.AuditData.PSObject.Properties | ForEach-Object {
+                      "    {0}: {1}" -f $_.Name, $_.Value
+                    }) -join "`n")
+                  }
+                </ScriptBlock>
+              </ListItem>
+            </ListItems>
+          </ListEntry>
+        </ListEntries>
+      </ListControl>
+    </View>
+    <View>
+      <!-- One combined view per conversation: unified audit, DLP alert, and DSPM summaries together, one line per item. -->
+      <Name>CopilotDlp.Evidence</Name>
+      <ViewSelectedBy>
+        <TypeName>CopilotDlp.Evidence</TypeName>
+      </ViewSelectedBy>
+      <ListControl>
+        <ListEntries>
+          <ListEntry>
+            <ListItems>
+              <ListItem>
+                <PropertyName>RunId</PropertyName>
+              </ListItem>
+              <ListItem>
+                <PropertyName>ConversationId</PropertyName>
+              </ListItem>
+              <ListItem>
+                <PropertyName>CorrelatedUser</PropertyName>
+              </ListItem>
+              <ListItem>
+                <PropertyName>CorrelatedStartTime</PropertyName>
+              </ListItem>
+              <ListItem>
+                <Label>Tested</Label>
+                <ScriptBlock>
+                  $vr = $_.ValidationRecord
+                  if ($null -eq $vr) {
+                    'Unknown (no ValidationRecord)'
+                  }
+                  else {
+                    "TestUser=$($vr.TestUser) StartedAtUtc=$($vr.StartedAtUtc) SubmissionStatus=$($vr.SubmissionStatus) ExpectedDlpOutcome=$($vr.ExpectedDlpOutcome) SensitiveTextSha256=$($vr.SensitiveTextSha256)"
+                  }
+                </ScriptBlock>
+              </ListItem>
+              <ListItem>
+                <Label>UnifiedAudit</Label>
+                <ScriptBlock>
+                  $events = @($_.UnifiedAuditEvents)
+                  if ($_.UnifiedAuditError) {
+                    "ERROR: $($_.UnifiedAuditError)"
+                  }
+                  elseif ($events.Count -eq 0) {
+                    'Not found'
+                  }
+                  else {
+                    $blocks = for ($i = 0; $i -lt $events.Count; $i++) {
+                      $e = $events[$i]
+                      $lines = @(
+                        "  [$($i + 1)] CreationTime: $($e.CreationTime)"
+                        "      Workload: $($e.Workload)"
+                        "      AppHost: $($e.AppHost)"
+                        "      Operation: $($e.Operation)"
+                        "      RecordType: $($e.RecordType)"
+                        "      UserId: $($e.UserId)"
+                        "      SubmissionStatus: $($e.SubmissionStatus)"
+                        "      ExpectedDlpOutcome: $($e.ExpectedDlpOutcome)"
+                        "      DLPEvaluationDeferred: $($e.DLPEvaluationDeferred)"
+                        "      DLPEvaluationDeferredReason: $($e.DLPEvaluationDeferredReason)"
+                      )
+                      $lines -join "`n"
+                    }
+                    "Found ($($events.Count))`n" + ($blocks -join "`n")
+                  }
+                </ScriptBlock>
+              </ListItem>
+              <ListItem>
+                <Label>DlpAlert</Label>
+                <ScriptBlock>
+                  $alerts = @($_.DlpAlerts)
+                  if ($_.DlpAlertError) {
+                    "ERROR: $($_.DlpAlertError)"
+                  }
+                  elseif ($alerts.Count -eq 0) {
+                    'Not found'
+                  }
+                  else {
+                    $blocks = for ($i = 0; $i -lt $alerts.Count; $i++) {
+                      $a = $alerts[$i]
+                      $evidenceSummary = if (@($a.Evidence).Count -gt 0) {
+                        (@($a.Evidence) | ForEach-Object {
+                          $upn = if ($_.userAccount) { $_.userAccount.userPrincipalName } else { $null }
+                          "$($_.verdict)/$upn"
+                        }) -join '; '
+                      }
+                      else {
+                        $null
+                      }
+                      $tags = if (@($a.SystemTags).Count -gt 0) { (@($a.SystemTags)) -join ',' } else { $null }
+                      $lines = @(
+                        "  [$($i + 1)] AlertId: $($a.AlertId)"
+                        "      Title: $($a.Title)"
+                        "      Status: $($a.Status)"
+                        "      Severity: $($a.Severity)"
+                        "      Category: $($a.Category)"
+                        "      AlertPolicyTitle: $($a.AlertPolicyTitle)"
+                        "      CorrelationMethod: $($a.CorrelationMethod)"
+                        "      FirstActivityDateTime: $($a.FirstActivityDateTime)"
+                        "      LastActivityDateTime: $($a.LastActivityDateTime)"
+                        "      InvestigationState: $($a.InvestigationState)"
+                        "      RecommendedActions: $($a.RecommendedActions)"
+                        "      SystemTags: $tags"
+                        "      Evidence: $evidenceSummary"
+                        "      IncidentId: $($a.IncidentId)"
+                        "      AlertWebUrl: $($a.AlertWebUrl)"
+                      )
+                      $lines -join "`n"
+                    }
+                    "Found ($($alerts.Count))`n" + ($blocks -join "`n")
+                  }
+                </ScriptBlock>
+              </ListItem>
+              <ListItem>
+                <Label>Dspm</Label>
+                <ScriptBlock>
+                  $dspmEvents = @($_.DspmEvents)
+                  if ($_.DspmError) {
+                    "ERROR: $($_.DspmError)"
+                  }
+                  elseif ($dspmEvents.Count -eq 0) {
+                    'Not found'
+                  }
+                  else {
+                    $blocks = for ($i = 0; $i -lt $dspmEvents.Count; $i++) {
+                      $d = $dspmEvents[$i]
+                      $pluginNames = if (@($d.AISystemPlugin).Count -gt 0) { (@($d.AISystemPlugin) | ForEach-Object { $_.Name }) -join ',' } else { $null }
+                      $messageCount = @($d.Messages).Count
+                      $lines = @(
+                        "  [$($i + 1)] Happened: $($d.Happened)"
+                        "      Activity: $($d.Activity)"
+                        "      User: $($d.User)"
+                        "      AppIdentity: $($d.AppIdentity)"
+                        "      AppIdentityCategory: $($d.AppIdentityCategory)"
+                        "      AppLocation: $($d.AppLocation)"
+                        "      AppHost: $($d.AppHost)"
+                        "      AISystemPlugin: $pluginNames"
+                        "      DLPEvaluationDeferred: $($d.DLPEvaluationDeferred)"
+                        "      MessageCount: $messageCount"
+                        "      HasWebsearchQuery: $($d.HasWebsearchQuery)"
+                        "      AreSensitiveFilesReferenced: $($d.AreSensitiveFilesReferenced)"
+                        "      RecordIdentity: $($d.RecordIdentity)"
+                      )
+                      $lines -join "`n"
+                    }
+                    "Found ($($dspmEvents.Count))`n" + ($blocks -join "`n")
+                  }
+                </ScriptBlock>
+              </ListItem>
+            </ListItems>
+          </ListEntry>
+        </ListEntries>
+      </ListControl>
+    </View>
+  </ViewDefinitions>
+</Configuration>

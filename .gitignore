@@ -1,8 +1,21 @@
-﻿*.jsonl
+﻿# Generated test/validation data (Test-CopilotAndDLP run output)
+*.jsonl
 *.clixml
 *.log
+copilot-dlp-results.jsonl
+copilot-dlp.log
+copilot-dlp-live-results.clixml
+copilot-dlp-audit-events.clixml
+copilot-dlp-alert-correlations.clixml
+live-output.txt
+
+# Pester/analyzer output
 TestResults/
 test-results.xml
+
+# Local-only Pester tests; not published to GitHub
+tests/
+
 PSScriptAnalyzerSettings.psd1
 .DS_Store
 Thumbs.db

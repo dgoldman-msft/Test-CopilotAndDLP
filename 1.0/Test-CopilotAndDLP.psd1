@@ -7,10 +7,11 @@
     Copyright         = '(c) Dave Goldman. All rights reserved.'
     Description       = 'Submits approved synthetic sensitive-data prompts to Microsoft 365 Copilot Chat for Microsoft Purview DLP validation.'
     PowerShellVersion = '7.2'
-    FunctionsToExport = @('Test-CopilotAndDLP', 'Search-CopilotDlpAuditEvent', 'Get-CopilotDlpSensitiveInfoType')
+    FunctionsToExport = @('Test-CopilotAndDLP', 'Search-CopilotDlpAuditEvent', 'Search-CopilotDlpAlert', 'Search-CopilotDlpDspmEvent', 'Search-CopilotDlpAndDspmEvidence', 'Get-CopilotDlpSensitiveInfoType')
     CmdletsToExport   = @()
     VariablesToExport = @()
     AliasesToExport   = @()
+    FormatsToProcess  = @('formats\Test-CopilotAndDLP.format.ps1xml')
     PrivateData       = @{
         PSData = @{
             Tags       = @('M365', 'Copilot', 'Purview', 'DLP', 'MicrosoftGraph')

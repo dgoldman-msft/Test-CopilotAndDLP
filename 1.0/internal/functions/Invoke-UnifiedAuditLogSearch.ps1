@@ -15,8 +15,9 @@
         [Parameter(Mandatory)]
         [string] $RecordType,
 
-        [Parameter(Mandatory)]
         [string] $UserIds,
+
+        [string] $FreeText,
 
         [Parameter(Mandatory)]
         [datetime] $StartDate,
@@ -28,10 +29,18 @@
         [int] $ResultSize
     )
 
-    Search-UnifiedAuditLog `
-        -RecordType $RecordType `
-        -UserIds $UserIds `
-        -StartDate $StartDate `
-        -EndDate $EndDate `
-        -ResultSize $ResultSize
+    $searchParameters = @{
+        RecordType = $RecordType
+        StartDate  = $StartDate
+        EndDate    = $EndDate
+        ResultSize = $ResultSize
+    }
+    if (-not [string]::IsNullOrWhiteSpace($UserIds)) {
+        $searchParameters.UserIds = $UserIds
+    }
+    if (-not [string]::IsNullOrWhiteSpace($FreeText)) {
+        $searchParameters.FreeText = $FreeText
+    }
+
+    Search-UnifiedAuditLog @searchParameters
 }

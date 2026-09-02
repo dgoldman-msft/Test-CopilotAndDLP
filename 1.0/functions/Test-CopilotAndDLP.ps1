@@ -14,8 +14,12 @@
     approved by your organization.
 
     .PARAMETER TestSensitiveText
-    Synthetic text expected to match the sensitive information type under test.
-    The command adds the corroborative phrase from -SensitiveInfoTypeLabel next to it.
+    One or more synthetic text values expected to match the sensitive information
+    type under test. The command adds the corroborative phrase from
+    -SensitiveInfoTypeLabel next to each value. Accepts an array, a comma-separated
+    list, or pipeline input; the command submits one Copilot conversation per value
+    and returns one result object per value, reusing a single Microsoft Graph
+    sign-in across the batch.
 
     .PARAMETER SensitiveInfoTypeLabel
     Corroborative keyword phrase paired with -TestSensitiveText in the prompt, to
@@ -63,13 +67,27 @@
 
     Tests the Credit card number sensitive information type using a
     well-known, publicly documented test card number instead of an SSN.
+
+    .EXAMPLE
+    'REPLACE-WITH-APPROVED-VALUE-1', 'REPLACE-WITH-APPROVED-VALUE-2' |
+        Test-CopilotAndDLP -Confirm:$false
+
+    Runs a two-scenario regression batch, signing in to Microsoft Graph once and
+    submitting one prompt per piped value.
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'High')]
     [OutputType([pscustomobject])]
     param(
-        [Parameter(Mandatory)]
-        [ValidateScript({ -not [string]::IsNullOrWhiteSpace($_) })]
-        [string]
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [ValidateScript({
+            foreach ($value in $_) {
+                if ([string]::IsNullOrWhiteSpace($value)) {
+                    throw 'TestSensitiveText values must not be null or whitespace.'
+                }
+            }
+            $true
+        })]
+        [string[]]
         $TestSensitiveText,
 
         # Kept in sync with 1.0/data/SensitiveInfoTypes.psd1 (Microsoft Learn SIT catalog).
@@ -426,162 +444,177 @@
         $LogPath = (Join-Path (Get-Location).Path 'copilot-dlp.log')
     )
 
-    $requiredScopes = @(
-        'Sites.Read.All'
-        'Mail.Read'
-        'People.Read.All'
-        'OnlineMeetingTranscript.Read.All'
-        'Chat.Read'
-        'ChannelMessage.Read.All'
-        'ExternalItem.Read.All'
-    )
-
-    $runId = [guid]::NewGuid().ToString()
-    $startedAt = [DateTimeOffset]::UtcNow
-
-    Write-ToLogFile -StringObject "[$runId] Starting Copilot DLP validation run." -LogFile $LogPath
-
-    if ($WhatIfPreference) {
-        Write-ToLogFile -StringObject "[$runId] Preview mode (-WhatIf): no authentication or network calls will be made." -LogFile $LogPath
-        return [pscustomobject] @{
-            PSTypeName       = 'CopilotDlp.ValidationPreview'
-            RunId            = $runId
-            Action           = 'Would submit an approved synthetic prompt to Microsoft 365 Copilot'
-            TenantId         = $TenantId
-            TimeZone         = $TimeZone
-            WebSearchEnabled = [bool] $EnableWebSearch
-            Authentication   = if ($UseDeviceCode) { 'DeviceCode' } else { 'WAM' }
-            RequiredScopes   = $requiredScopes
-            ResultPath       = $ResultPath
-            LogPath          = $LogPath
-        }
+    begin {
+        $requiredScopes = @(
+            'Sites.Read.All'
+            'Mail.Read'
+            'People.Read.All'
+            'OnlineMeetingTranscript.Read.All'
+            'Chat.Read'
+            'ChannelMessage.Read.All'
+            'ExternalItem.Read.All'
+        )
+        $graphConnected = $false
+        $graphContext = $null
     }
 
-    Install-RequiredGraphModule -Name 'Microsoft.Graph.Authentication' -RunId $runId -LogFile $LogPath
+    process {
+        foreach ($testValue in $TestSensitiveText) {
+            $runId = [guid]::NewGuid().ToString()
+            $startedAt = [DateTimeOffset]::UtcNow
 
-    $connectParameters = @{
-        Scopes    = $requiredScopes
-        NoWelcome = $true
-    }
-    if ($TenantId) {
-        $connectParameters.TenantId = $TenantId
-    }
-    if ($UseDeviceCode) {
-        $connectParameters.UseDeviceCode = $true
-    }
+            Write-ToLogFile -StringObject "[$runId] Starting Copilot DLP validation run." -LogFile $LogPath
 
-    Write-ToLogFile -StringObject "[$runId] Connecting to Microsoft Graph with delegated permissions." -LogFile $LogPath
-    Connect-MgGraph @connectParameters
+            if ($WhatIfPreference) {
+                Write-ToLogFile -StringObject "[$runId] Preview mode (-WhatIf): no authentication or network calls will be made." -LogFile $LogPath
+                [pscustomobject] @{
+                    PSTypeName       = 'CopilotDlp.ValidationPreview'
+                    RunId            = $runId
+                    Action           = 'Would submit an approved synthetic prompt to Microsoft 365 Copilot'
+                    TenantId         = $TenantId
+                    TimeZone         = $TimeZone
+                    WebSearchEnabled = [bool] $EnableWebSearch
+                    Authentication   = if ($UseDeviceCode) { 'DeviceCode' } else { 'WAM' }
+                    RequiredScopes   = $requiredScopes
+                    ResultPath       = $ResultPath
+                    LogPath          = $LogPath
+                }
+                continue
+            }
 
-    $graphContext = Get-MgContext
-    if (-not $graphContext -or [string]::IsNullOrWhiteSpace([string] $graphContext.Account)) {
-        throw 'Microsoft Graph authentication did not return a signed-in account.'
-    }
+            if (-not $graphConnected) {
+                Install-RequiredGraphModule -Name 'Microsoft.Graph.Authentication' -RunId $runId -LogFile $LogPath
 
-    Write-ToLogFile -StringObject "[$runId] Signed in as $($graphContext.Account) (tenant $($graphContext.TenantId))." -LogFile $LogPath
+                $connectParameters = @{
+                    Scopes    = $requiredScopes
+                    NoWelcome = $true
+                }
+                if ($TenantId) {
+                    $connectParameters.TenantId = $TenantId
+                }
+                if ($UseDeviceCode) {
+                    $connectParameters.UseDeviceCode = $true
+                }
 
-    $target = "Microsoft 365 Copilot as $($graphContext.Account)"
-    if (-not $PSCmdlet.ShouldProcess($target, 'Submit synthetic DLP validation prompt')) {
-        Write-ToLogFile -StringObject "[$runId] Submission skipped (ShouldProcess declined)." -LogFile $LogPath
-        return
-    }
+                Write-ToLogFile -StringObject "[$runId] Connecting to Microsoft Graph with delegated permissions." -LogFile $LogPath
+                Connect-MgGraph @connectParameters
 
-    $prompt = @"
+                $graphContext = Get-MgContext
+                if (-not $graphContext -or [string]::IsNullOrWhiteSpace([string] $graphContext.Account)) {
+                    throw 'Microsoft Graph authentication did not return a signed-in account.'
+                }
+
+                Write-ToLogFile -StringObject "[$runId] Signed in as $($graphContext.Account) (tenant $($graphContext.TenantId))." -LogFile $LogPath
+                $graphConnected = $true
+            }
+            else {
+                Write-ToLogFile -StringObject "[$runId] Reusing the active Microsoft Graph sign-in for $($graphContext.Account)." -LogFile $LogPath
+            }
+
+            $target = "Microsoft 365 Copilot as $($graphContext.Account)"
+            if (-not $PSCmdlet.ShouldProcess($target, 'Submit synthetic DLP validation prompt')) {
+                Write-ToLogFile -StringObject "[$runId] Submission skipped (ShouldProcess declined)." -LogFile $LogPath
+                continue
+            }
+
+            $prompt = @"
 DLP automated validation test.
 Test ID: $runId
-$($SensitiveInfoTypeLabel): $TestSensitiveText
+$($SensitiveInfoTypeLabel): $testValue
 This is synthetic test data. Do not retain or repeat it.
 "@
 
-    $requestBody = @{
-        message = @{
-            text = $prompt
-        }
-        locationHint = @{
-            timeZone = $TimeZone
-        }
-        contextualResources = @{
-            webContext = @{
-                isWebEnabled = [bool] $EnableWebSearch
+            $requestBody = @{
+                message = @{
+                    text = $prompt
+                }
+                locationHint = @{
+                    timeZone = $TimeZone
+                }
+                contextualResources = @{
+                    webContext = @{
+                        isWebEnabled = [bool] $EnableWebSearch
+                    }
+                }
+            } | ConvertTo-Json -Depth 8
+
+            $conversationId = $null
+            $response = $null
+            $submissionStatus = 'NotSubmitted'
+            $errorMessage = $null
+
+            try {
+                Write-ToLogFile -StringObject "[$runId] Creating a Microsoft 365 Copilot conversation." -LogFile $LogPath
+                $conversation = Invoke-CopilotGraphRequestWithRetry `
+                    -Method POST `
+                    -Uri 'https://graph.microsoft.com/beta/copilot/conversations' `
+                    -ContentType 'application/json' `
+                    -Body '{}'
+
+                $conversationId = if ($conversation -is [Collections.IDictionary]) {
+                    $conversation['id']
+                }
+                elseif ($null -ne $conversation -and $conversation.PSObject.Properties.Name -contains 'id') {
+                    $conversation.id
+                }
+
+                if ([string]::IsNullOrWhiteSpace([string] $conversationId)) {
+                    throw 'Copilot conversation creation returned no id.'
+                }
+
+                Write-ToLogFile -StringObject "[$runId] Conversation created: $conversationId. Submitting synthetic prompt." -LogFile $LogPath
+                $response = Invoke-CopilotGraphRequestWithRetry `
+                    -Method POST `
+                    -Uri "https://graph.microsoft.com/beta/copilot/conversations/$conversationId/chat" `
+                    -ContentType 'application/json' `
+                    -Body $requestBody
+
+                $submissionStatus = 'Submitted'
+                Write-ToLogFile -StringObject "[$runId] Prompt submitted successfully." -LogFile $LogPath
+            }
+            catch {
+                $submissionStatus = 'ApiRejected'
+                $errorMessage = [regex]::Replace(
+                    $_.Exception.Message,
+                    [regex]::Escape($testValue),
+                    '[REDACTED]',
+                    [Text.RegularExpressions.RegexOptions]::IgnoreCase
+                )
+                Write-ToLogFile -StringObject "[$runId] Prompt submission was rejected: $errorMessage" -LogFile $LogPath
+            }
+
+            $record = [ordered] @{
+                RunId               = $runId
+                StartedAtUtc        = $startedAt.ToString('o')
+                CompletedAtUtc      = [DateTimeOffset]::UtcNow.ToString('o')
+                TestUser            = $graphContext.Account
+                TenantId            = $graphContext.TenantId
+                ConversationId      = $conversationId
+                SubmissionStatus    = $submissionStatus
+                ExpectedDlpOutcome  = 'PromptProcessingBlocked'
+                SensitiveTextSha256 = Get-SensitiveTextHash -Text $testValue
+                WebSearchEnabled    = [bool] $EnableWebSearch
+                Error               = $errorMessage
+            }
+
+            Write-ToLogFile -StringObject "[$runId] Writing correlation record to $ResultPath." -LogFile $LogPath
+            Write-CopilotDlpCorrelationRecord -Record $record -Path $ResultPath
+            Write-ToLogFile -StringObject "[$runId] Run complete. SubmissionStatus: $submissionStatus." -LogFile $LogPath
+
+            [pscustomobject] @{
+                PSTypeName         = 'CopilotDlp.ValidationResult'
+                RunId              = $record.RunId
+                StartedAtUtc       = $record.StartedAtUtc
+                TestUser           = $record.TestUser
+                TenantId           = $record.TenantId
+                ConversationId     = $record.ConversationId
+                SubmissionStatus   = $record.SubmissionStatus
+                ExpectedDlpOutcome = $record.ExpectedDlpOutcome
+                CopilotResponse    = Get-CopilotResponseText -Response $response
+                Error              = $record.Error
+                ResultPath         = $ResultPath
+                LogPath            = $LogPath
             }
         }
-    } | ConvertTo-Json -Depth 8
-
-    $conversationId = $null
-    $response = $null
-    $submissionStatus = 'NotSubmitted'
-    $errorMessage = $null
-
-    try {
-        Write-ToLogFile -StringObject "[$runId] Creating a Microsoft 365 Copilot conversation." -LogFile $LogPath
-        $conversation = Invoke-MgGraphRequest `
-            -Method POST `
-            -Uri 'https://graph.microsoft.com/beta/copilot/conversations' `
-            -ContentType 'application/json' `
-            -Body '{}'
-
-        $conversationId = if ($conversation -is [Collections.IDictionary]) {
-            $conversation['id']
-        }
-        elseif ($null -ne $conversation -and $conversation.PSObject.Properties.Name -contains 'id') {
-            $conversation.id
-        }
-
-        if ([string]::IsNullOrWhiteSpace([string] $conversationId)) {
-            throw 'Copilot conversation creation returned no id.'
-        }
-
-        Write-ToLogFile -StringObject "[$runId] Conversation created: $conversationId. Submitting synthetic prompt." -LogFile $LogPath
-        $response = Invoke-MgGraphRequest `
-            -Method POST `
-            -Uri "https://graph.microsoft.com/beta/copilot/conversations/$conversationId/chat" `
-            -ContentType 'application/json' `
-            -Body $requestBody
-
-        $submissionStatus = 'Submitted'
-        Write-ToLogFile -StringObject "[$runId] Prompt submitted successfully." -LogFile $LogPath
-    }
-    catch {
-        $submissionStatus = 'ApiRejected'
-        $errorMessage = [regex]::Replace(
-            $_.Exception.Message,
-            [regex]::Escape($TestSensitiveText),
-            '[REDACTED]',
-            [Text.RegularExpressions.RegexOptions]::IgnoreCase
-        )
-        Write-ToLogFile -StringObject "[$runId] Prompt submission was rejected: $errorMessage" -LogFile $LogPath
-    }
-
-    $record = [ordered] @{
-        RunId               = $runId
-        StartedAtUtc        = $startedAt.ToString('o')
-        CompletedAtUtc      = [DateTimeOffset]::UtcNow.ToString('o')
-        TestUser            = $graphContext.Account
-        TenantId            = $graphContext.TenantId
-        ConversationId      = $conversationId
-        SubmissionStatus    = $submissionStatus
-        ExpectedDlpOutcome  = 'PromptProcessingBlocked'
-        SensitiveTextSha256 = Get-SensitiveTextHash -Text $TestSensitiveText
-        WebSearchEnabled    = [bool] $EnableWebSearch
-        Error               = $errorMessage
-    }
-
-    Write-ToLogFile -StringObject "[$runId] Writing correlation record to $ResultPath." -LogFile $LogPath
-    Write-CopilotDlpCorrelationRecord -Record $record -Path $ResultPath
-    Write-ToLogFile -StringObject "[$runId] Run complete. SubmissionStatus: $submissionStatus." -LogFile $LogPath
-
-    [pscustomobject] @{
-        PSTypeName         = 'CopilotDlp.ValidationResult'
-        RunId              = $record.RunId
-        StartedAtUtc       = $record.StartedAtUtc
-        TestUser           = $record.TestUser
-        TenantId           = $record.TenantId
-        ConversationId     = $record.ConversationId
-        SubmissionStatus   = $record.SubmissionStatus
-        ExpectedDlpOutcome = $record.ExpectedDlpOutcome
-        CopilotResponse    = Get-CopilotResponseText -Response $response
-        Error              = $record.Error
-        ResultPath         = $ResultPath
-        LogPath            = $LogPath
     }
 }
