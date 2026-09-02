@@ -1,0 +1,9 @@
+﻿*.jsonl
+*.clixml
+*.log
+TestResults/
+test-results.xml
+PSScriptAnalyzerSettings.psd1
+.DS_Store
+Thumbs.db
+.vscode
