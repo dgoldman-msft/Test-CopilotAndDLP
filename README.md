@@ -21,6 +21,61 @@ Submit an approved synthetic sensitive-data prompt to Microsoft 365 Copilot Chat
 
 The Microsoft 365 Copilot Chat API is a preview Microsoft Graph beta API. It currently supports delegated authentication only; application permissions and client-credential authentication are not supported.
 
+## How the Copilot Chat API works
+
+This module uses the Microsoft Graph PowerShell authentication library, but sends the Copilot requests directly with `Invoke-MgGraphRequest`. A validation run performs the following operations:
+
+1. `Connect-MgGraph` signs in a licensed Microsoft 365 Copilot test user with delegated permissions.
+2. `POST https://graph.microsoft.com/beta/copilot/conversations` creates a Copilot conversation and returns its conversation ID.
+3. `POST https://graph.microsoft.com/beta/copilot/conversations/{conversation-id}/chat` submits the synthetic test value as prompt text.
+4. The module records the run ID, conversation ID, signed-in user, tenant, UTC timestamps, submission status, and a SHA-256 hash of the synthetic value.
+5. `Search-CopilotDlpAuditEvent` can later search the Microsoft Purview unified audit log for `CopilotInteraction` records in the corresponding user and time window.
+
+The run ID is included in the prompt as `Test ID: <RunId>`, which provides a unique value for later correlation. The API response only confirms whether Copilot accepted the request. It does not confirm that Microsoft Purview matched a sensitive information type or enforced a DLP rule.
+
+The module uses the synchronous chat endpoint because a DLP validation run needs one completed response rather than streamed output. Web search is disabled on each request by default so prompt-processing behavior can be tested independently.
+
+## Why the permissions are broader than expected
+
+The Copilot Chat API doesn't currently expose a single permission such as `Copilot.Write` for submitting prompts. Instead, it runs in the security context of the signed-in user and requires the delegated read scopes listed above. These scopes allow Copilot's enterprise-grounding service to search the Microsoft 365 data sources that the API supports. They don't grant the module permission to change mail, sites, chats, meetings, or external items.
+
+The effective access is the intersection of both controls:
+
+- The delegated scopes granted to the Microsoft Graph PowerShell client.
+- The data the signed-in test user is already authorized to read in Microsoft 365.
+
+For example, `Sites.Read.All` allows the API to read SharePoint content on behalf of the user, but it doesn't let the user bypass existing SharePoint permissions. Even so, these are high-impact tenant-wide delegated scopes and should go through the organization's normal security and consent review.
+
+Use the following safeguards:
+
+- Run tests with a dedicated, licensed test account rather than an administrator account.
+- Give the test account access only to controlled test data and test sites.
+- Use synthetic sensitive values approved by the organization.
+- Grant delegated consent only for the scopes required by the Copilot Chat API.
+- Protect the PowerShell token cache, JSONL correlation records, and text logs.
+- Review preview API and permission requirements regularly because Microsoft can change them.
+
+### Scheduled and unattended execution
+
+Delegated-only authentication is the main challenge for running this module on a schedule. The Copilot Chat API doesn't support application permissions, managed identities, or client-secret/client-certificate authentication. Therefore, a daemon or scheduled task can't use the usual app-only Microsoft Graph pattern.
+
+The initial sign-in requires a user through Windows Web Account Manager or device-code authentication. A scheduled process might be able to reuse a protected delegated token cache, but token renewal can still require user interaction because of expiration, revocation, multifactor authentication, Conditional Access, or sign-in-frequency policies. Treat any cached-token approach as tenant-specific and don't weaken those policies to make the test unattended.
+
+A practical design is to run the submission under a dedicated test-user context, write the safe correlation record, and run audit correlation later. The correlation job has separate requirements: `Search-CopilotDlpAuditEvent` connects to Exchange Online and requires a role that can read the unified audit log, such as **View-Only Audit Logs** or **Audit Logs**. The submission account and audit-search account don't have to be the same identity.
+
+## Prompt-text tests versus file tests
+
+For a rule that detects an SSN or another sensitive information type in a Copilot prompt, place the approved synthetic value directly in `-TestSensitiveText`. Microsoft Purview DLP evaluates text entered directly into the prompt.
+
+Uploading a file directly in a Copilot prompt is not an equivalent sensitive-information-type test. Microsoft currently documents that DLP can't scan the contents of files uploaded directly into prompts; only the typed prompt text is evaluated for sensitive information types.
+
+The Copilot Chat API can use existing OneDrive and SharePoint files as contextual resources, but that is a different test scenario and this module doesn't currently add file contextual resources to its request. To validate file-processing restrictions, store a test file in a controlled SharePoint or OneDrive location, apply a sensitivity label covered by a Copilot DLP rule, ask Copilot to summarize the file, and verify that its contents were excluded. File exclusion in the Microsoft 365 Copilot and Copilot Chat DLP location is based on sensitivity labels rather than scanning a prompt-uploaded file for an SSN.
+
+See:
+
+- [Microsoft 365 Copilot Chat API overview](https://learn.microsoft.com/microsoft-365-copilot/extensibility/api/ai-services/chat/overview)
+- [Microsoft Purview DLP for Microsoft 365 Copilot and Copilot Chat](https://learn.microsoft.com/purview/dlp-microsoft365-copilot-location-learn-about)
+
 ## Dependency installation
 
 `Test-CopilotAndDLP` checks whether `Microsoft.Graph.Authentication` is installed. If it is missing, the command installs it for the current user (`Install-Module -Scope CurrentUser`) before importing it. Each step is logged to the console. To install it yourself ahead of time instead:
@@ -128,8 +183,6 @@ The JSONL record contains:
 
 The plaintext synthetic value and Copilot response are not written to the JSONL file.
 
-<br>
-
 ## Security guidance
 
 1. Use only synthetic values approved by your organization.
@@ -138,8 +191,6 @@ The plaintext synthetic value and Copilot response are not written to the JSONL 
 4. Store the JSONL result in an access-controlled location.
 5. Review the generated prompt with `-WhatIf` behavior before submitting, and use a dedicated licensed test account.
 6. The command requests broad read scopes required by the preview Copilot Chat API. Review and approve delegated consent through your organization's normal process.
-
-<br>
 
 ## Submission status
 
@@ -178,8 +229,6 @@ Areas worth investing in next, roughly in priority order:
 - **CI coverage for `Search-CopilotDlpAuditEvent`**: the current tests mock the Exchange Online call; consider an integration test tier (manually triggered) against a real test tenant.
 
 ## Development
-
-<br>
 
 Install test dependencies and run validation:
 
